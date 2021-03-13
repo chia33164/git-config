@@ -4,18 +4,49 @@
 # A git hook to help you to do spell checking, coding style, and unsafe functions removal.
 #
 
+# ---------- Check the tools are all installed ----------- #
+# @clang-format for coding style checking
+# @cppcheck     for static analysis
+# @aspell       for spell checking
+# @colordiff    for
+
+CLANG_FORMAT=$(which clang-format)
+if [ $? -ne 0 ]; then
+  echo "[!] clang-format is not installed. Unable to check source file format policy." >&2
+  exit 1
+fi
+
+CPPCHECK=$(which cppcheck)
+if [ $? -ne 0 ]; then
+  echo "[!] cppcheck is not installed. Unable to perform static analysis." >&2
+  exit 1
+fi
+
+ASPELL=$(which aspell)
+if [ $? -ne 0 ]; then
+  echo "[!] GNU Aspell is not installed. Unable to do spell checking." >&2
+  exit 1
+fi
+
+DIFF=$(which colordiff)
+if [ $? -ne 0 ]; then
+  echo "[!] colordiff is not installed. Unable to use 'diff' with colour schemes." >&2
+  DIFF=diff
+fi
+
 RETURN=0
+
 #
 # Check the coding style is following the clang-format for consistent coding style.
 #
 check_clang_format() {
   FILES=`git diff --cached --name-only --diff-filter=ACMR | grep -E "\.(c|cpp|cc|h)$"`
   if [ ! -z ${FILES} ]; then
-    for FILE in FILES; do
-      nf=`git checkout-index --temp $FILE | cut -f 1`
+    for FILE in $FILES; do
+      nf=`git checkout-index --temp ${FILE} | cut -f 1`
       tempdir=`mktemp -d` || exit 1
       newfile=`mktemp ${tempdir}/${nf}.XXXXXX` || exit 1
-      basename=`basename $FILE`
+      basename=`basename ${FILE}`
 
       source="${tempdir}/${basename}"
       mv $nf $source
@@ -49,8 +80,8 @@ check_unsafe_functions() {
   root=$(git rev-parse --show-toplevel)
   banned="([^f]gets\() | (sprintf\() | (strcpy\()"
   status=0
-  FILES=`git diff --cached --name-only | grep -E "\.(c|cc|cpp|h)\$"`
-  for FILE in FILES; do
+  FILES=`git diff --cached --name-only | grep -E "\.(c|cc|cpp|h)$"`
+  for FILE in $FILES; do
     filepath="${root}/${FILE}"
     output=$(grep -nrE "${banned}" "${filepath}")
     if [ ! -z ${output} ]; then
@@ -67,49 +98,28 @@ check_unsafe_functions() {
 #
 # Do static analysis with cppcheck.
 #
-#static_analysis() {
-
-#}
+static_analysis() {
+  CPPCHECK_suppresses="--inline-suppr test.c --suppress=unmatchedSuppression:test.c --suppress=missingIncludeSystem"
+  CPPCHECK_OPTS="-I. --enable=all --error-exitcode=1 --force $CPPCHECK_suppresses ."
+  $CPPCHECK $CPPCHECK_OPTS > /dev/null
+  if [ $? -ne 0 ]; then
+    RETURN=1
+    echo "" >&2
+    echo "Fail to pass static analysis." >&2
+    echo
+  fi
+}
 
 #
 # It is showtime.
 #
 while true; do
-  # ---------- Check the tools are all installed ----------- #
-  # @clang-format for coding style checking
-  # @cppcheck     for static analysis
-  # @aspell       for spell checking
-  # @colordiff    for
-
-  CLANG_FORMAT=$(which clang-format)
-  if [ $? -ne 0 ]; then
-    echo "[!] clang-format is not installed. Unable to check source file format policy." >&2
-    exit 1
-  fi
-
-  CPP_CHECK=$(which cppcheck)
-  if [ $? -ne 0 ]; then
-    echo "[!] cppcheck is not installed. Unable to perform static analysis." >&2
-    exit 1
-  fi
-
-  ASPELL=$(which aspell)
-  if [ $? -ne 0 ]; then
-    echo "[!] GNU Aspell is not installed. Unable to do spell checking." >&2
-    exit 1
-  fi
-
-  DIFF=$(which colordiff)
-  if [ $? -ne 0 ]; then
-    echo "[!] colordiff is not installed. Unable to use 'diff' with colour schemes." >&2
-    DIFF=diff
-  fi
 
   check_clang_format
 
   check_unsafe_functions
 
- # static_analysis
+  static_analysis
 
   exit $RETURN
 done
