@@ -13,18 +13,24 @@
 CLANG_FORMAT=$(which clang-format)
 if [ $? -ne 0 ]; then
   echo "[!] clang-format is not installed. Unable to check source file format policy." >&2
+  echo "You can install it with following command: " >&2
+  echo "  sudo apt-get install clang-format" >&2
   exit 1
 fi
 
 CPPCHECK=$(which cppcheck)
 if [ $? -ne 0 ]; then
   echo "[!] cppcheck is not installed. Unable to perform static analysis." >&2
+  echo "You can install it with following command: " >&2
+  echo "  sudo apt-get install cppcheck" >&2
   exit 1
 fi
 
 ASPELL=$(which aspell)
 if [ $? -ne 0 ]; then
   echo "[!] GNU Aspell is not installed. Unable to do spell checking." >&2
+  echo "You can install it with following command: " >&2
+  echo "  sudo apt-get install aspell" >&2
   exit 1
 fi
 
